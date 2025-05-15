@@ -1,0 +1,35 @@
+from fastapi import FastAPI
+from app.db.session import engine
+from app.db.base import Base
+from app.routers import users, teams, competitions, applications, matches, auth
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+
+from app import models  # 👈 импорт всех моделей (ВАЖНО!)
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    docs_url="/docs",
+    redoc_url=None
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Подключение роутеров
+app.include_router(users.router)
+app.include_router(teams.router)
+app.include_router(competitions.router)
+app.include_router(applications.router)
+app.include_router(matches.router)
+app.include_router(auth.router)
+
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

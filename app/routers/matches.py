@@ -1,0 +1,26 @@
+from fastapi import APIRouter, Depends
+from typing import List
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from app.db.session import AsyncSessionLocal
+from app.models.match import Match
+from app.schemas.match import MatchCreate, MatchRead
+
+router = APIRouter(prefix="/matches", tags=["Matches"])
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+
+@router.post("/", response_model=MatchRead)
+async def create_match(match: MatchCreate, db: AsyncSession = Depends(get_db)):
+    new_match = Match(**match.dict())
+    db.add(new_match)
+    await db.commit()
+    await db.refresh(new_match)
+    return new_match
+
+@router.get("/", response_model=List[MatchRead])
+async def get_all_matches(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Match))
+    return result.scalars().all()
