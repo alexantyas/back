@@ -21,7 +21,10 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(new_user)
     return new_user
-
+# Получение текущего пользователя по токену (JWT)
+@router.get("/me", response_model=UserRead)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
 # Получение пользователя по id (требует токен)
 @router.get("/{user_id}", response_model=UserRead)
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
@@ -31,7 +34,4 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-# Получение текущего пользователя по токену (JWT)
-@router.get("/me", response_model=UserRead)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+
