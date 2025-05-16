@@ -35,6 +35,9 @@ class User(Base):
     birth_date = Column(Date)
     login = Column(String, unique=True)
     password = Column(String)
+    phone = Column(String)           # ← НОВОЕ
+    email = Column(String)           # ← НОВОЕ
+    organization = Column(String)    # ← НОВОЕ
 
     role_id = Column(Integer, ForeignKey("roles.id"))
     country_id = Column(Integer, ForeignKey("countries.id"))
@@ -45,3 +48,4 @@ class User(Base):
     country = relationship("Country")
     city = relationship("City")
     additional_info = relationship("AdditionalInfo")
+

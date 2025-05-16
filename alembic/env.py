@@ -10,7 +10,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # импорт настроек и моделей
-from app.db import Base
+from app.db.base import Base
 from app.models import user, team, application, competition, match
 
 # Alembic Config object

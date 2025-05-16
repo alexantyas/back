@@ -7,6 +7,9 @@ class UserBase(BaseModel):
     last_name: str
     middle_name: Optional[str] = None
     login: str
+    phone: Optional[str] = None        # ← НОВОЕ
+    email: Optional[str] = None        # ← НОВОЕ
+    organization: Optional[str] = None # ← НОВОЕ
 
 
 class UserCreate(UserBase):
@@ -51,3 +54,18 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str | None = None
+
+class AdditionalInfoBase(BaseModel):
+    height: Optional[int] = None
+    weight: Optional[int] = None
+    rank: Optional[str] = None
+    gender: Optional[str] = None
+
+class AdditionalInfoCreate(AdditionalInfoBase):
+    pass
+
+class AdditionalInfoRead(AdditionalInfoBase):
+    id: int
+
+    class Config:
+        from_attributes = True

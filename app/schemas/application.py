@@ -15,7 +15,7 @@ class RequestTypeRead(RequestTypeBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ApplicationBase(BaseModel):
@@ -33,7 +33,7 @@ class ApplicationRead(ApplicationBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ApplicationParticipantBase(BaseModel):
@@ -50,4 +50,4 @@ class ApplicationParticipantRead(ApplicationParticipantBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True

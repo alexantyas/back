@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -24,3 +24,11 @@ async def create_match(match: MatchCreate, db: AsyncSession = Depends(get_db)):
 async def get_all_matches(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Match))
     return result.scalars().all()
+
+@router.get("/{match_id}", response_model=MatchRead)
+async def get_match(match_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Match).where(Match.id == match_id))
+    match = result.scalar_one_or_none()
+    if match is None:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return match

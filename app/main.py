@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
 from app import models  # 👈 импорт всех моделей (ВАЖНО!)
+from app.routers import additional_info
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -28,6 +29,7 @@ app.include_router(competitions.router)
 app.include_router(applications.router)
 app.include_router(matches.router)
 app.include_router(auth.router)
+app.include_router(additional_info.router)
 
 @app.on_event("startup")
 async def startup():
