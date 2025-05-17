@@ -4,9 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
+
 from app.db.session import AsyncSessionLocal
 from app.models.user import User
-from app.schemas.user import Token, TokenData, UserLogin
+from app.schemas.user import Token
 from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -17,15 +18,18 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
+
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
@@ -34,14 +38,16 @@ async def login_for_access_token(
 ):
     result = await db.execute(select(User).where(User.login == form_data.username))
     user = result.scalar_one_or_none()
-    # Сравниваем пароли напрямую
+
     if not user or user.password != form_data.password:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+    # 🔥 КРИТИЧНО: положим login в payload → sub
     access_token = create_access_token(data={"sub": user.login})
     return {"access_token": access_token, "token_type": "bearer"}
-
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -55,6 +61,7 @@ async def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+
     result = await db.execute(select(User).where(User.login == username))
     user = result.scalar_one_or_none()
     if user is None:
