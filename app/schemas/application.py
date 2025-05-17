@@ -21,7 +21,7 @@ class RequestTypeRead(RequestTypeBase):
 class ApplicationBase(BaseModel):
     competition_id: int
     request_type_id: int
-    team_id: int
+    team_id: Optional[int] = None  # ← теперь это не обязательное поле
     request_date: datetime
 
 
