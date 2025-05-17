@@ -7,7 +7,7 @@ from app.core.config import settings
 
 from app import models  # 👈 импорт всех моделей (ВАЖНО!)
 from app.routers import additional_info
-
+from app.routers import location
 app = FastAPI(
     title=settings.PROJECT_NAME,
     docs_url="/docs",
@@ -30,8 +30,5 @@ app.include_router(applications.router)
 app.include_router(matches.router)
 app.include_router(auth.router)
 app.include_router(additional_info.router)
+app.include_router(location.router)
 
-@app.on_event("startup")
-async def startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)

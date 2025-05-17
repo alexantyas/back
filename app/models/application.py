@@ -1,7 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime  # ← добавь DateTime
-from sqlalchemy.orm import relationship
-from app.db.base import Base
-
+from sqlalchemy import Column, Date, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -14,7 +11,7 @@ class Application(Base):
     __tablename__ = "applications"
     id = Column(Integer, primary_key=True)
     request_date = Column(DateTime)
-    
+
     competition_id = Column(Integer, ForeignKey("competitions.id"))
     request_type_id = Column(Integer, ForeignKey("request_types.id"))
     team_id = Column(Integer, ForeignKey("teams.id"))
@@ -22,14 +19,37 @@ class Application(Base):
     competition = relationship("Competition", back_populates="applications")
     request_type = relationship("RequestType")
     team = relationship("Team")
-    participants = relationship("ApplicationParticipant", back_populates="application")
 
-class ApplicationParticipant(Base):
-    __tablename__ = "application_participants"
+    # ✅ Добавлены корректные связи с индивидуальными и командными участниками
+    individual_participants = relationship(
+        "ApplicationIndividualParticipant", back_populates="application", cascade="all, delete-orphan"
+    )
+    team_participants = relationship(
+        "ApplicationTeamParticipant", back_populates="application", cascade="all, delete-orphan"
+    )
+
+class ApplicationIndividualParticipant(Base):
+    __tablename__ = "application_individual_participants"
     id = Column(Integer, primary_key=True)
     application_id = Column(Integer, ForeignKey("applications.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
     status = Column(String)
 
-    application = relationship("Application", back_populates="participants")
+    application = relationship("Application", back_populates="individual_participants")
     user = relationship("User")
+
+class ApplicationTeamParticipant(Base):
+    __tablename__ = "application_team_participants"
+    id = Column(Integer, primary_key=True)
+    application_id = Column(Integer, ForeignKey("applications.id"))
+    
+    first_name = Column(String)
+    last_name = Column(String)
+    middle_name = Column(String)
+    weight = Column(Integer)
+    birth_date = Column(Date)
+    country_id = Column(Integer)
+    city_id = Column(Integer)
+    status = Column(String)
+
+    application = relationship("Application", back_populates="team_participants")
