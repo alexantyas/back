@@ -1,8 +1,11 @@
+# app/schemas/application.py
+
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime
 
-from app.schemas.user import UserRead   # ← импорт вложенного
+from app.schemas.user import UserRead   # вложенный тренер
+
 
 # --- RequestType ---
 class RequestTypeBase(BaseModel):
@@ -13,6 +16,7 @@ class RequestTypeCreate(RequestTypeBase):
 
 class RequestTypeRead(RequestTypeBase):
     id: int
+
     class Config:
         orm_mode = True
 
@@ -28,6 +32,7 @@ class ApplicationIndividualParticipantCreate(ApplicationIndividualParticipantBas
 
 class ApplicationIndividualParticipantRead(ApplicationIndividualParticipantBase):
     id: int
+
     class Config:
         orm_mode = True
 
@@ -49,6 +54,7 @@ class ApplicationTeamParticipantCreate(ApplicationTeamParticipantBase):
 
 class ApplicationTeamParticipantRead(ApplicationTeamParticipantBase):
     id: int
+
     class Config:
         orm_mode = True
 
@@ -58,21 +64,26 @@ class ApplicationBase(BaseModel):
     competition_id: int
     request_type_id: int
     team_id: Optional[int] = None
-    user_id: Optional[int] = None           # ← новое поле
+    user_id: Optional[int] = None           # тренер, заполняется из JWT
     request_date: datetime
+    status: Optional[str] = "pending"       # дефолтный статус
 
 class ApplicationCreate(ApplicationBase):
-    team_participants: Optional[List[ApplicationTeamParticipantCreate]] = None
+    team_participants: Optional[List[ApplicationTeamParticipantCreate]]       = None
     individual_participants: Optional[List[ApplicationIndividualParticipantCreate]] = None
 
 class ApplicationRead(ApplicationBase):
     id: int
-
     individual_participants: List[ApplicationIndividualParticipantRead] = []
     team_participants:       List[ApplicationTeamParticipantRead]       = []
+    user: Optional[UserRead] = None        # вложенный тренер
 
-    # ← вложенный пользователь (тренер)
-    user: Optional[UserRead] = None
+    class Config:
+        orm_mode = True
+
+
+class ApplicationUpdate(BaseModel):
+    status: str    # ожидаем "approved" | "rejected" | и др.
 
     class Config:
         orm_mode = True
