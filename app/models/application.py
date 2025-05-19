@@ -24,11 +24,7 @@ class Application(Base):
     id            = Column(Integer, primary_key=True)
     request_date  = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    competition_id  = Column(
-        Integer,
-        ForeignKey("competitions.id", ondelete="CASCADE"),
-        nullable=False
-    )
+    competition_id = Column(Integer, ForeignKey("competitions.id", ondelete="CASCADE"), nullable=False)
     request_type_id = Column(
         Integer,
         ForeignKey("request_types.id"),

@@ -4,9 +4,9 @@ from datetime import datetime
 
 
 class MatchBase(BaseModel):
-    red_id: Optional[int] = None
-    blue_id: Optional[int] = None
-    winner_id: Optional[int] = None
+    red_id:        int
+    blue_id:       int
+    winner_id:     Optional[int] = None
     competition_id:int
     referee_id:    Optional[int] = None
     judge_id:      Optional[int] = None

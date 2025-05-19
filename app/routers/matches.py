@@ -21,8 +21,18 @@ async def create_match(match: MatchCreate, db: AsyncSession = Depends(get_db)):
     return new_match
 
 @router.get("/", response_model=List[MatchRead])
-async def get_all_matches(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Match))
+async def list_matches(
+    competition_id: Optional[int] = Query(None, description="ID соревнования для фильтрации"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Возвращает все матчи, либо только по заданному competition_id.
+    """
+    q = select(Match)
+    if competition_id is not None:
+        q = q.where(Match.competition_id == competition_id)
+
+    result = await db.execute(q)
     return result.scalars().all()
 
 @router.get("/{match_id}", response_model=MatchRead)
@@ -43,17 +53,3 @@ async def create_matches_batch(
     for m in new: await db.refresh(m)
     return new
 
-@router.get("/", response_model=List[MatchRead])
-async def list_matches(
-    competition_id: Optional[int] = Query(None, description="ID соревнования для фильтрации"),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Возвращает все матчи, либо только по заданному competition_id.
-    """
-    q = select(Match)
-    if competition_id is not None:
-        q = q.where(Match.competition_id == competition_id)
-
-    result = await db.execute(q)
-    return result.scalars().all()
