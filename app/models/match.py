@@ -6,8 +6,8 @@ class Match(Base):
     __tablename__ = "matches"
     id = Column(Integer, primary_key=True)
 
-    red_id = Column(Integer, ForeignKey("users.id"))
-    blue_id = Column(Integer, ForeignKey("users.id"))
+    red_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    blue_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     winner_id = Column(Integer, ForeignKey("users.id"))
     competition_id = Column(Integer, ForeignKey("competitions.id"))
 
