@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db.session import AsyncSessionLocal
@@ -32,3 +32,28 @@ async def get_match(match_id: int, db: AsyncSession = Depends(get_db)):
     if match is None:
         raise HTTPException(status_code=404, detail="Match not found")
     return match
+@router.post("/batch", response_model=List[MatchRead])
+async def create_matches_batch(
+    matches: List[MatchCreate], 
+    db: AsyncSession = Depends(get_db)
+):
+    new = [Match(**m.dict()) for m in matches]
+    db.add_all(new)
+    await db.commit()
+    for m in new: await db.refresh(m)
+    return new
+
+@router.get("/", response_model=List[MatchRead])
+async def list_matches(
+    competition_id: Optional[int] = Query(None, description="ID соревнования для фильтрации"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Возвращает все матчи, либо только по заданному competition_id.
+    """
+    q = select(Match)
+    if competition_id is not None:
+        q = q.where(Match.competition_id == competition_id)
+
+    result = await db.execute(q)
+    return result.scalars().all()

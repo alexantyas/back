@@ -32,6 +32,7 @@ class ApplicationIndividualParticipantCreate(ApplicationIndividualParticipantBas
 
 class ApplicationIndividualParticipantRead(ApplicationIndividualParticipantBase):
     id: int
+    user: UserRead     # <-- добавляем вложенную модель пользователя
 
     class Config:
         orm_mode = True
