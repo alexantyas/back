@@ -83,7 +83,8 @@ async def create_application(
         .where(Application.id == new_application.id)
         .options(
             selectinload(Application.user),
-            selectinload(Application.individual_participants),
+            selectinload(Application.individual_participants)
+                .selectinload(ApplicationIndividualParticipant.user),
             selectinload(Application.team_participants),
         )
     )
@@ -104,7 +105,8 @@ async def get_all_applications(
     q = (
         select(Application)
         .options(
-            selectinload(Application.individual_participants),
+            selectinload(Application.individual_participants)
+                .selectinload(ApplicationIndividualParticipant.user),
             selectinload(Application.team_participants),
             selectinload(Application.team),
             selectinload(Application.user),
