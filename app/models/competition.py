@@ -21,5 +21,17 @@ class Competition(Base):
     status = Column(String)
 
     venue = relationship("Venue")
-    applications = relationship("Application", back_populates="competition")
-    matches = relationship("Match", back_populates="competition")
+
+    applications = relationship(
+        "Application",
+        back_populates="competition",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    matches = relationship(
+        "Match",
+        back_populates="competition",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )

@@ -12,8 +12,7 @@ class Match(Base):
     blue_participant_id = Column(Integer, nullable=False)
     winner_participant_type = Column(String(20), nullable=True)
     winner_participant_id = Column(Integer, nullable=True)
-    competition_id = Column(Integer, ForeignKey("competitions.id"))
-
+    competition_id = Column(Integer, ForeignKey("competitions.id", ondelete="CASCADE"), nullable=False)
     comment = Column(String)
     match_time = Column(DateTime)
     score = Column(Integer)
