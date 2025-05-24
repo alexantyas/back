@@ -14,7 +14,7 @@ class Match(Base):
     # Новые поля для турнирного брэкета
     stage                  = Column(String(50), nullable=True)   # например "1/16", "quarter"
     status                 = Column(String(20), nullable=True)   # "scheduled", "finished" и т.п.
-
+    category = Column(String(20), nullable=False)
     winner_participant_type= Column(String(20), nullable=True)
     winner_participant_id  = Column(Integer, nullable=True)
 
@@ -23,7 +23,7 @@ class Match(Base):
         ForeignKey("competitions.id", ondelete="CASCADE"),
         nullable=False
     )
-    category = Column(String(20), nullable=False)
+    
     comment                = Column(String, nullable=True)
     match_time             = Column(DateTime, nullable=True)
     score                  = Column(Integer, nullable=True)
