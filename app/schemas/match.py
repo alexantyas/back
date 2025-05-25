@@ -2,48 +2,72 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-class MatchBase(BaseModel):
+# Для создания (POST)
+class MatchCreate(BaseModel):
     red_participant_type: str
     red_participant_id: int
     blue_participant_type: str
     blue_participant_id: int
-
-    # Новые поля для брэкета
-    stage: Optional[str] = None
-    status: Optional[str] = None
-    category: str
-    winner_participant_type: Optional[str] = None
-    winner_participant_id: Optional[int] = None
     competition_id: int
-    referee_id: Optional[int] = None
-    judge_id: Optional[int] = None
-    match_time: Optional[datetime] = None
-    score: Optional[int] = None
-    comment: Optional[str] = None
-
-class MatchCreate(MatchBase):
-    pass
-
-class MatchUpdate(BaseModel):
-    red_participant_type: Optional[str] = None
-    red_participant_id: Optional[int] = None
-    blue_participant_type: Optional[str] = None
-    blue_participant_id: Optional[int] = None
+    category: str
 
     stage: Optional[str] = None
     status: Optional[str] = None
-    category: Optional[str] = None
+    referee_id: Optional[int] = None
+    judge_id: Optional[int] = None
+    match_time: Optional[datetime] = None
+    score: Optional[int] = None
+    comment: Optional[str] = None
     winner_participant_type: Optional[str] = None
     winner_participant_id: Optional[int] = None
-    competition_id: Optional[int] = None
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+# Для вывода (GET, PATCH response)
+class MatchRead(BaseModel):
+    id: int
+    competition_id: int
+    category: str
+
+    red_participant_type: str
+    red_participant_id: int
+    blue_participant_type: Optional[str] = None    # теперь nullable
+    blue_participant_id: Optional[int] = None      # теперь nullable
+
+    stage: Optional[str] = None
+    status: Optional[str] = None
+
     referee_id: Optional[int] = None
     judge_id: Optional[int] = None
     match_time: Optional[datetime] = None
     score: Optional[int] = None
     comment: Optional[str] = None
 
-class MatchRead(MatchBase):
-    id: int
+    winner_participant_type: Optional[str] = None
+    winner_participant_id: Optional[int] = None
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+# Для обновления (PATCH)
+class MatchUpdate(BaseModel):
+    # можно менять только эти поля
+    stage: Optional[str] = None
+    status: Optional[str] = None
+    match_time: Optional[datetime] = None
+    judge_id: Optional[int] = None
+    referee_id: Optional[int] = None
+    score: Optional[int] = None
+    comment: Optional[str] = None
+
+    # специально оставляем для финального статуса
+    winner_participant_type: Optional[str] = None
+    winner_participant_id: Optional[int] = None
 
     model_config = {
         "from_attributes": True
