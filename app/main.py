@@ -26,7 +26,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=[
+        "http://localhost:5173",  # Vite по умолчанию
+        "http://localhost:8080",  # Vue CLI
+        "http://localhost:8082",  # ваш случай!
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
