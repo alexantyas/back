@@ -4,7 +4,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import update, or_
+from sqlalchemy import update, or_, delete
 from sqlalchemy.exc import NoResultFound
 
 from app.db.session import AsyncSessionLocal
@@ -20,23 +20,21 @@ async def get_db():
 
 # --- Логика этапов турнира --------------------------------------------------
 
-STAGE_ORDER = ["1/8 финала", "1/4 финала", "1/2 финала", "финал"]
+STAGE_ORDER = ["1/8", "1/4", "1/2", "финал", "3 место"]
 
 def get_next_stage(current: str) -> str | None:
     try:
         idx = STAGE_ORDER.index(current)
+        # "матч за 3 место" никогда не является next_stage
+        if STAGE_ORDER[idx] == "финал":
+            return None
         return STAGE_ORDER[idx + 1]
     except (ValueError, IndexError):
         return None
 
 async def fill_next_stage_slot(db: AsyncSession, finished: Match):
-    """
-    Вносит в таблицу matches победителя в следующий этап.
-    Если на этапе ещё нет «заготовки» (stub) – создаёт; иначе заполняет пустой слот.
-    С конкурентным контролем через FOR UPDATE SKIP LOCKED.
-    """
     next_stage = get_next_stage(finished.stage)
-    if not next_stage:
+    if not next_stage or next_stage == "3 место":
         return
 
     async with db.begin():
@@ -63,7 +61,6 @@ async def fill_next_stage_slot(db: AsyncSession, finished: Match):
             stub = None
 
         if not stub:
-            # создаём новый stub-матч с первым победителем
             stub = Match(
                 competition_id           = finished.competition_id,
                 category                 = finished.category,
@@ -74,7 +71,6 @@ async def fill_next_stage_slot(db: AsyncSession, finished: Match):
             )
             db.add(stub)
         else:
-            # заполняем второй слот
             if stub.red_participant_id is None:
                 stub.red_participant_type = finished.winner_participant_type
                 stub.red_participant_id   = finished.winner_participant_id
@@ -86,6 +82,9 @@ async def fill_next_stage_slot(db: AsyncSession, finished: Match):
 
 @router.post("/", response_model=MatchRead)
 async def create_match(match: MatchCreate, db: AsyncSession = Depends(get_db)):
+    # --- Проверка: нельзя создавать матч за 3 место руками ---
+    if match.stage == "3 место":
+        raise HTTPException(status_code=400, detail="Матч за 3 место создаётся автоматически по итогам полуфиналов")
     new_match = Match(**match.model_dump())
     db.add(new_match)
     await db.commit()
@@ -97,6 +96,10 @@ async def create_matches_batch(
     matches: List[MatchCreate],
     db: AsyncSession = Depends(get_db)
 ):
+    # --- Проверка: не даём вручную создать матч за 3 место через batch ---
+    for m in matches:
+        if m.stage == "3 место":
+            raise HTTPException(status_code=400, detail="Матч за 3 место создаётся автоматически по итогам полуфиналов")
     new = [Match(**m.model_dump()) for m in matches]
     db.add_all(new)
     await db.commit()
@@ -123,24 +126,16 @@ async def put_match(
     match_update: MatchUpdate,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    PUT /matches/{match_id} —
-    Обновляет указанные поля матча, сохраняет победителя и
-    автоматически создаёт или дополняет матч следующего этапа.
-    """
-    # 1. Находим матч
     db_match = await db.get(Match, match_id)
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    # 2. Собираем только переданные поля
     update_data = match_update.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
 
     logger.info("PUT update_data: %s", update_data)
 
-    # 3. Явный UPDATE через core-выражение
     await db.execute(
         update(Match)
         .where(Match.id == match_id)
@@ -148,7 +143,6 @@ async def put_match(
     )
     await db.commit()
 
-    # 4. Получаем обновлённый матч
     updated = await db.get(Match, match_id)
     logger.info(
         "PUT OK: id=%s, status=%s, winner=%s/%s",
@@ -158,8 +152,83 @@ async def put_match(
         updated.winner_participant_id
     )
 
-    # 5. Если матч завершён и есть победитель — формируем следующий этап
     if updated.status == "finished" and updated.winner_participant_id:
         await fill_next_stage_slot(db, updated)
 
+    if updated.stage == "1/2":
+        await try_create_bronze_match(db, updated)
+
     return updated
+
+# --- Логика матча за 3 место ------------------------------------------------
+
+async def try_create_bronze_match(db: AsyncSession, finished: Match):
+    # 1. Находим все полуфиналы этой категории
+    stmt = select(Match).where(
+        Match.competition_id == finished.competition_id,
+        Match.category == finished.category,
+        Match.stage == "1/2",
+        Match.status == "finished"
+    ).order_by(Match.id)
+    result = await db.execute(stmt)
+    semifinals = result.scalars().all()
+    if len(semifinals) < 2:
+        return
+
+    losers = []
+    for m in semifinals:
+        if m.red_participant_id and m.red_participant_id != m.winner_participant_id:
+            losers.append({"type": m.red_participant_type, "id": m.red_participant_id})
+        if m.blue_participant_id and m.blue_participant_id != m.winner_participant_id:
+            losers.append({"type": m.blue_participant_type, "id": m.blue_participant_id})
+
+    # Оставляем только уникальных
+    unique_losers = []
+    ids_seen = set()
+    for l in losers:
+        if l["id"] not in ids_seen:
+            unique_losers.append(l)
+            ids_seen.add(l["id"])
+        if len(unique_losers) == 2:
+            break
+
+    if len(unique_losers) < 2:
+        return
+
+    # Чистим все невалидные (битые) матчи за 3 место для этой категории/турнира
+    await db.execute(
+        delete(Match).where(
+            Match.competition_id == finished.competition_id,
+            Match.category == finished.category,
+            Match.stage == "3 место",
+            or_(
+                Match.red_participant_id == None,
+                Match.blue_participant_id == None
+            )
+        )
+    )
+    # Проверяем — нет ли уже нормального бронзового матча
+    stmt = select(Match).where(
+        Match.competition_id == finished.competition_id,
+        Match.category == finished.category,
+        Match.stage == "3 место",
+        Match.red_participant_id != None,
+        Match.blue_participant_id != None
+    )
+    exists = await db.execute(stmt)
+    if exists.scalars().first():
+        return
+
+    # Создаём матч за 3 место
+    bronze_match = Match(
+        competition_id=finished.competition_id,
+        category=finished.category,
+        stage="3 место",
+        status="upcoming",
+        red_participant_type=unique_losers[0]["type"],
+        red_participant_id=unique_losers[0]["id"],
+        blue_participant_type=unique_losers[1]["type"],
+        blue_participant_id=unique_losers[1]["id"]
+    )
+    db.add(bronze_match)
+    await db.commit()
