@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 
-from app.db.session import get_db
+from app.db.session import AsyncSessionLocal
 from app.models.judge import Judge
 from app.schemas.judge import JudgeCreate, JudgeRead
 
@@ -11,7 +11,9 @@ import pandas as pd
 from io import BytesIO
 
 router = APIRouter()
-
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 # 1. Получить всех судей по id соревнования
 @router.get("/judges/", response_model=List[JudgeRead])
 async def get_judges(

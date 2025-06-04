@@ -20,7 +20,7 @@ class MatchCreate(BaseModel):
     comment: Optional[str] = None
     winner_participant_type: Optional[str] = None
     winner_participant_id: Optional[int] = None
-
+    tatami: Optional[str] = None
     model_config = {
         "from_attributes": True
     }
@@ -48,7 +48,7 @@ class MatchRead(BaseModel):
 
     winner_participant_type: Optional[str] = None
     winner_participant_id: Optional[int] = None
-
+    tatami: Optional[str] = None
     model_config = {
         "from_attributes": True
     }
@@ -68,7 +68,7 @@ class MatchUpdate(BaseModel):
     # специально оставляем для финального статуса
     winner_participant_type: Optional[str] = None
     winner_participant_id: Optional[int] = None
-
+    tatami: Optional[str] = None
     model_config = {
         "from_attributes": True
     }

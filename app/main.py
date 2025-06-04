@@ -12,6 +12,8 @@ from app.routers import (
     auth,
     additional_info,
     location,
+    judges,
+    
 )
 from app.core.config import settings
 
@@ -51,3 +53,6 @@ app.include_router(matches.router)
 app.include_router(auth.router)
 app.include_router(additional_info.router)
 app.include_router(location.router)
+app.include_router(judges.router)
+
+

@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List, Optional
 import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +10,8 @@ from sqlalchemy.exc import NoResultFound
 from app.db.session import AsyncSessionLocal
 from app.models.match import Match
 from app.schemas.match import MatchCreate, MatchRead, MatchUpdate
+from datetime import datetime, timedelta
+from app.models.judge import Judge
 
 router = APIRouter(prefix="/matches", tags=["Matches"])
 logger = logging.getLogger(__name__)
@@ -232,3 +234,125 @@ async def try_create_bronze_match(db: AsyncSession, finished: Match):
     )
     db.add(bronze_match)
     await db.commit()
+
+async def auto_assign_officials_to_matches(
+    db: AsyncSession, 
+    competition_id: int, 
+    start_time: datetime = None
+):
+    """Автоматически назначает судей, рефери, ковры и время на существующие матчи"""
+    
+    # Получаем все матчи без назначенных судей
+    result = await db.execute(
+        select(Match).where(
+            Match.competition_id == competition_id,
+            or_(Match.referee_id == None, Match.judge_id == None, Match.tatami == None)
+        ).order_by(Match.id)
+    )
+    matches = result.scalars().all()
+    
+    if not matches:
+        return {"message": "Нет матчей для назначения судей", "assigned": 0}
+    
+    # Получаем судей для этого соревнования
+    judges_result = await db.execute(
+        select(Judge).where(Judge.competition_id == competition_id)
+    )
+    judges = judges_result.scalars().all()
+    
+    if not judges:
+        return {"message": "Нет судей для назначения. Сначала импортируйте судей на странице 'Судейская'", "assigned": 0}
+    
+    # Разделяем судей по категориям
+    referees = [j for j in judges if j.category in ['Международная', 'Национальная']]
+    regular_judges = [j for j in judges if j.category in ['Национальная', 'Региональная']]
+    
+    # Если рефери мало, добавляем из обычных судей
+    if len(referees) < 2:
+        referees.extend(regular_judges[:3])
+    
+    # Получаем доступные ковры из судей
+    available_carpets = list(set(j.tatami for j in judges if j.tatami))
+    if not available_carpets:
+        available_carpets = [1, 2, 3, 4]  # По умолчанию
+    
+    # Исправляем время - убираем timezone
+    if start_time:
+        # Если пришло время с timezone, убираем его
+        if start_time.tzinfo is not None:
+            base_time = start_time.replace(tzinfo=None)
+        else:
+            base_time = start_time
+    else:
+        # Создаем naive datetime (без timezone)
+        base_time = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
+    
+    # Назначаем судей и время
+    referee_counter = 0
+    judge_counter = 0
+    carpet_counter = 0
+    
+    assigned_count = 0
+    
+    # Обновляем каждый матч отдельно, чтобы избежать проблем с batch update
+    for i, match in enumerate(matches):
+        updates_made = False
+        
+        # Назначаем ковер если не назначен
+        if not match.tatami:
+            carpet_num = available_carpets[carpet_counter % len(available_carpets)]
+            match.tatami = f"Ковер {carpet_num}"
+            carpet_counter += 1
+            updates_made = True
+        
+        # Назначаем рефери если не назначен
+        if not match.referee_id and referees:
+            referee = referees[referee_counter % len(referees)]
+            match.referee_id = referee.id
+            referee_counter += 1
+            updates_made = True
+        
+        # Назначаем судью если не назначен
+        if not match.judge_id and regular_judges:
+            judge = regular_judges[judge_counter % len(regular_judges)]
+            match.judge_id = judge.id
+            judge_counter += 1
+            updates_made = True
+        
+        # Назначаем время если не назначено
+        if not match.match_time:
+            time_offset = (i // len(available_carpets)) * 8  # 8 минут на матч
+            # Создаем naive datetime без timezone
+            match_time = base_time + timedelta(minutes=time_offset)
+            match.match_time = match_time
+            updates_made = True
+        
+        if updates_made:
+            assigned_count += 1
+    
+    # Коммитим все изменения
+    await db.commit()
+    
+    return {
+        "message": f"Назначены судьи для {len(matches)} матчей",
+        "total_matches": len(matches),
+        "referees_available": len(referees),
+        "judges_available": len(regular_judges),
+        "carpets_available": len(available_carpets),
+        "assigned": assigned_count
+    }
+
+# Эндпоинт автоназначения
+@router.post("/auto-assign-officials/{competition_id}")
+async def auto_assign_officials(
+    competition_id: int,
+    start_time: Optional[datetime] = Query(None, description="Время начала"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Автоматически назначает судей, рефери, ковры и время на существующие матчи"""
+    try:
+        result = await auto_assign_officials_to_matches(db, competition_id, start_time)
+        return result
+    except Exception as e:
+        logger.error(f"Ошибка автоназначения: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Ошибка автоназначения: {str(e)}")
